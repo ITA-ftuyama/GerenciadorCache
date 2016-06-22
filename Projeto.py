@@ -120,10 +120,30 @@ class L1cache (object):
                 l2.write(address)
             # Política de Gravação Write Back
             elif self.write_policy == 'WB':
+                # Realização da escrita na Cache L1
+                stats.stats['memtime'] += 2
                 self.cacheM[index] = 1
                 return
         else:
-            return
+            # Política de Gravação Write Through
+            if self.write_policy == 'WT':
+                # Faz a gravação no nível inferior
+                l2.write(address)
+                # Traz o bloco para a Cache L1
+                self.substitute(address)
+                # Realização da escrita na Cache L1
+                stats.stats['memtime'] += 2
+                self.cacheM[index] = 1
+            # Política de Gravação Write Back
+            elif self.write_policy == 'WB':
+                # Traz o bloco do nível inferior
+                l2.read(address)
+                # Traz o bloco para a Cache L1
+                self.substitute(address)
+                # Realização da escrita na Cache L1
+                stats.stats['memtime'] += 2
+                self.cacheM[index] = 1
+                return
 
 
 class L2cache (object):
@@ -195,10 +215,30 @@ class L2cache (object):
                 mem.write(address)
             # Política de Gravação Write Back
             elif self.write_policy == 'WB':
+                # Realização da escrita na Cache L2
+                stats.stats['memtime'] += 4
                 self.cacheM[index] = 1
                 return
         else:
-            return
+            # Política de Gravação Write Through
+            if self.write_policy == 'WT':
+                # Faz a gravação no nível inferior
+                mem.write(address)
+                # Traz o bloco para a Cache L2
+                self.substitute(address)
+                # Realização da escrita na Cache L2
+                stats.stats['memtime'] += 4
+                self.cacheM[index] = 1
+            # Política de Gravação Write Back
+            elif self.write_policy == 'WB':
+                # Traz o bloco do nível inferior
+                mem.read(address)
+                # Traz o bloco para a Cache L2
+                self.substitute(address)
+                # Realização da escrita na Cache L2
+                stats.stats['memtime'] += 4
+                self.cacheM[index] = 1
+                return
 
 
 class Memory (object):
