@@ -4,10 +4,6 @@ u"""Simulador de Sistema de Memória."""
 # Professor: Paulo André (PA)
 # Disciplina: CES-25
 # Autor: Felipe Tuyama
-import threading
-import time
-
-exitFlag = 0
 
 
 class Queue (object):
@@ -34,29 +30,11 @@ class Queue (object):
         return len(self.dados)
 
 
-class Thread (threading.Thread):
-    u"""Implementação de Thread para busca em paralelo."""
-
-    def __init__(self, thread_id, name, counter):
-        u"""Inicialização de uma nova thread."""
-        threading.Thread.__init__(self)
-        self.threadID = thread_id
-        self.name = name
-        self.counter = counter
-
-    def run(self):
-        u"""Execução da thread."""
-        print "Starting " + self.name
-        print_time(self.name, self.counter, 5)
-        print "Exiting " + self.name
-
-
 class L1cache (object):
     u"""Cache L1."""
 
     cache = []
     cacheM = []
-    cacheI = []
     LRU = Queue()
     write_policy = 'WT'
     subst_policy = 'FIFO'
@@ -65,9 +43,8 @@ class L1cache (object):
     def __init__(self):
         u"""Inicialização da Cache L1."""
         for i in range(10):
-            self.cache.append(0)
+            self.cache.append(-1)
             self.cacheM.append(0)
-            self.cacheI.append(1)
             self.LRU.insert(i)
 
     def search(self, address):
@@ -84,12 +61,15 @@ class L1cache (object):
         if self.subst_policy == 'FIFO':
             slot = self.LRU.remove()
             self.cache[slot] = address
+            self.cacheM[slot] = 0
             self.LRU.insert(slot)
 
     def available(self):
         u"""Procura slot disponível na Cache L1."""
-        if 1 in self.cacheI:
-            return self.cacheI.index(1)
+        if -1 in self.cache:
+            slot = self.cache.index(-1)
+            self.cache[slot] = 0
+            return slot
         else:
             return -1
 
@@ -123,7 +103,6 @@ class L1cache (object):
                 # Realização da escrita na Cache L1
                 stats.stats['memtime'] += 2
                 self.cacheM[index] = 1
-                return
         else:
             # Política de Gravação Write Through
             if self.write_policy == 'WT':
@@ -143,7 +122,6 @@ class L1cache (object):
                 # Realização da escrita na Cache L1
                 stats.stats['memtime'] += 2
                 self.cacheM[index] = 1
-                return
 
 
 class L2cache (object):
@@ -151,7 +129,6 @@ class L2cache (object):
 
     cache = []
     cacheM = []
-    cacheI = []
     LRU = Queue()
     write_policy = 'WB'
     subst_policy = 'FIFO'
@@ -160,9 +137,8 @@ class L2cache (object):
     def __init__(self):
         u"""Inicialização da Cache L1."""
         for i in range(64):
-            self.cache.append(0)
+            self.cache.append(-1)
             self.cacheM.append(0)
-            self.cacheI.append(1)
             self.LRU.insert(i)
 
     def search(self, address):
@@ -179,12 +155,15 @@ class L2cache (object):
         if self.subst_policy == 'FIFO':
             slot = self.LRU.remove()
             self.cache[slot] = address
+            self.cacheM[slot] = 0
             self.LRU.insert(slot)
 
     def available(self):
         u"""Procura slot disponível na Cache L1."""
-        if 1 in self.cacheI:
-            return self.cacheI.index(1)
+        if -1 in self.cache:
+            slot = self.cache.index(-1)
+            self.cache[slot] = 0
+            return slot
         else:
             return -1
 
@@ -218,7 +197,6 @@ class L2cache (object):
                 # Realização da escrita na Cache L2
                 stats.stats['memtime'] += 4
                 self.cacheM[index] = 1
-                return
         else:
             # Política de Gravação Write Through
             if self.write_policy == 'WT':
@@ -238,7 +216,6 @@ class L2cache (object):
                 # Realização da escrita na Cache L2
                 stats.stats['memtime'] += 4
                 self.cacheM[index] = 1
-                return
 
 
 class Memory (object):
@@ -305,18 +282,6 @@ def perform_operation(address, operation):
         l1.write(address)
 
 
-def print_time(thread_name, delay, counter):
-    u"""Imprime o horário atual."""
-    while counter:
-        if exitFlag:
-            thread_name.exit()
-        time.sleep(delay)
-        print "%s: %s" % (thread_name, time.ctime(time.time()))
-        fila.insert(thread_name)
-        print fila.dados
-        counter -= 1
-
-
 def main():
     u"""Rotina main do Simulador de Memória."""
     print "*************************************"
@@ -338,7 +303,6 @@ def main():
 
         # Parsing read line into Address and Operation
         [address, operation] = parse_line(line)
-        print "Address: " + address + " " + "Operation: " + operation
 
         # Performing selected operation
         perform_operation(address, operation)
@@ -346,15 +310,7 @@ def main():
     # Closing the input files
     file.close()
 
-    # Create new threads
-    # thread1 = Thread(1, "Thread-1", 1)
-    # thread2 = Thread(2, "Thread-2", 2)
-
-    # Start new Threads
-    # thread1.start()
-    # thread2.start()
-
-    print "Exiting Main Thread"
+    # Printing Statistics
     stats.print_stats()
 
 u"""Escopo global para chamada da main."""
