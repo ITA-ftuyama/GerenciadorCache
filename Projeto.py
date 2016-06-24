@@ -21,200 +21,97 @@ class Queue (object):
         u"""Remoção de elemento na fila."""
         return self.dados.pop(0)
 
-    def empty(self):
-        u"""Verifica se fila é vazia."""
-        return len(self.dados) == 0
 
-    def length(self):
-        u"""Retorna comprimento da fila."""
-        return len(self.dados)
-
-
-class L1cache (object):
-    u"""Cache L1."""
+class Cache (object):
+    u"""Classe Cache."""
 
     cache = []
     cacheM = []
     LRU = Queue()
     write_policy = 'WT'
-    subst_policy = 'FIFO'
     write_fail_policy = 'WA'
+    stathits = 'l1hits'
+    lower_level = None
+    access_time = 2
+    tag_time = 1
 
-    def __init__(self):
-        u"""Inicialização da Cache L1."""
-        for i in range(10):
-            self.cache.append(-1)
-            self.cacheM.append(0)
-            self.LRU.insert(i)
+    def __init__(self, size):
+        u"""Inicialização da Cache."""
+        self.cache = [-1] * size
+        self.cacheM = [0] * size
+        self.LRU.dados = range(size)
 
     def search(self, address):
-        u"""Procura endereço na cache L1."""
-        stats.stats['memtime'] += 1
+        u"""Procura endereço na cache."""
         if address in self.cache:
-            stats.stats['l1hits'] += 1
             return self.cache.index(address)
         else:
             return -1
 
     def substitute(self, address):
-        u"""Substituição de bloco na Cache L1."""
-        if self.subst_policy == 'FIFO':
-            slot = self.LRU.remove()
-            self.cache[slot] = address
-            self.cacheM[slot] = 0
-            self.LRU.insert(slot)
+        u"""Substituição de bloco na Cache."""
+        slot = self.LRU.remove()
+        # Verfica se o bloco está sujo
+        if self.cacheM[slot] == 1 and self.write_policy == 'WB':
+            # O Bloco deve ser gravado no nível inferior
+            # (O tempo será dado pelo nível inferior)
+            self.lower_level.write(address)
 
-    def available(self):
-        u"""Procura slot disponível na Cache L1."""
-        if -1 in self.cache:
-            slot = self.cache.index(-1)
-            self.cache[slot] = 0
-            return slot
-        else:
-            return -1
+        # Substituição sem traumas
+        self.cache[slot] = address
+        self.cacheM[slot] = 0
+        self.LRU.insert(slot)
 
     def read(self, address):
-        u"""Operação de leitura na Cache L1."""
-        # Busca endereço na Cache L1
+        u"""Operação de leitura na Cache."""
+        # Busca endereço na Cache
         index = self.search(address)
         if index != -1:
-            # Realização da leitura na Cache L1
-            stats.stats['memtime'] += 2
+            # Realização da leitura na Cache
+            stats.stats[self.stathits] += 1
+            stats.stats['memtime'] += self.tag_time + self.access_time
         else:
             # Continua a busca no nível inferior
-            l2.read(address)
-            # Traz o bloco para a Cache L1
+            # (O tempo será dado pelo nível inferior)
+            self.lower_level.read(address)
+            # Traz o bloco para a Cache
             self.substitute(address)
 
     def write(self, address):
-        u"""Operação de escrita na Cache L1."""
-        # Busca endereço na Cache L1
+        u"""Operação de escrita na Cache."""
+        # Busca endereço na Cache
         index = self.search(address)
         if index != -1:
             # Política de Gravação Write Through
             if self.write_policy == 'WT':
-                # Realização da escrita na Cache L1
-                stats.stats['memtime'] += 2
+                # Realização da escrita na Cache
+                # (O tempo será dado pelo nível inferior)
                 self.cacheM[index] = 1
                 # Realiza escrita no nível inferior também
-                l2.write(address)
+                self.lower_level.write(address)
             # Política de Gravação Write Back
             elif self.write_policy == 'WB':
-                # Realização da escrita na Cache L1
-                stats.stats['memtime'] += 2
+                # Realização da escrita na Cache
+                stats.stats['memtime'] += self.access_time
                 self.cacheM[index] = 1
         else:
             # Política de Gravação Write Through
             if self.write_policy == 'WT':
                 # Faz a gravação no nível inferior
-                l2.write(address)
-                # Traz o bloco para a Cache L1
+                # (O tempo será dado pelo nível inferior)
+                self.lower_level.write(address)
+                # Traz o bloco para a Cache
                 self.substitute(address)
-                # Realização da escrita na Cache L1
-                stats.stats['memtime'] += 2
+                # Realização da escrita na Cache
                 self.cacheM[index] = 1
             # Política de Gravação Write Back
             elif self.write_policy == 'WB':
                 # Traz o bloco do nível inferior
-                l2.read(address)
-                # Traz o bloco para a Cache L1
+                # (O tempo será dado pelo nível inferior)
+                self.lower_level.read(address)
+                # Traz o bloco para a Cache
                 self.substitute(address)
-                # Realização da escrita na Cache L1
-                stats.stats['memtime'] += 2
-                self.cacheM[index] = 1
-
-
-class L2cache (object):
-    u"""Cache L1."""
-
-    cache = []
-    cacheM = []
-    LRU = Queue()
-    write_policy = 'WB'
-    subst_policy = 'FIFO'
-    write_fail_policy = 'WNA'
-
-    def __init__(self):
-        u"""Inicialização da Cache L1."""
-        for i in range(64):
-            self.cache.append(-1)
-            self.cacheM.append(0)
-            self.LRU.insert(i)
-
-    def search(self, address):
-        u"""Procura endereço na cache L2."""
-        stats.stats['memtime'] += 2
-        if address in self.cache:
-            stats.stats['l2hits'] += 1
-            return self.cache.index(address)
-        else:
-            return -1
-
-    def substitute(self, address):
-        u"""Substituição de bloco na Cache L2."""
-        if self.subst_policy == 'FIFO':
-            slot = self.LRU.remove()
-            self.cache[slot] = address
-            self.cacheM[slot] = 0
-            self.LRU.insert(slot)
-
-    def available(self):
-        u"""Procura slot disponível na Cache L1."""
-        if -1 in self.cache:
-            slot = self.cache.index(-1)
-            self.cache[slot] = 0
-            return slot
-        else:
-            return -1
-
-    def read(self, address):
-        u"""Operação de leitura na Cache L2."""
-        # Busca endereço na Cache L2
-        index = self.search(address)
-        if index != -1:
-            # Realização da leitura na Cache L2
-            stats.stats['memtime'] += 4
-        else:
-            # Continua a busca no nível inferior
-            mem.read(address)
-            # Traz o bloco para a Cache L2
-            self.substitute(address)
-
-    def write(self, address):
-        u"""Operação de escrita na Cache L2."""
-        # Busca endereço na Cache L2
-        index = self.search(address)
-        if index != -1:
-            # Política de Gravação Write Through
-            if self.write_policy == 'WT':
-                # Realização da escrita na Cache L2
-                stats.stats['memtime'] += 4
-                self.cacheM[index] = 1
-                # Realiza escrita no nível inferior também
-                mem.write(address)
-            # Política de Gravação Write Back
-            elif self.write_policy == 'WB':
-                # Realização da escrita na Cache L2
-                stats.stats['memtime'] += 4
-                self.cacheM[index] = 1
-        else:
-            # Política de Gravação Write Through
-            if self.write_policy == 'WT':
-                # Faz a gravação no nível inferior
-                mem.write(address)
-                # Traz o bloco para a Cache L2
-                self.substitute(address)
-                # Realização da escrita na Cache L2
-                stats.stats['memtime'] += 4
-                self.cacheM[index] = 1
-            # Política de Gravação Write Back
-            elif self.write_policy == 'WB':
-                # Traz o bloco do nível inferior
-                mem.read(address)
-                # Traz o bloco para a Cache L2
-                self.substitute(address)
-                # Realização da escrita na Cache L2
-                stats.stats['memtime'] += 4
+                # Realização da escrita na Cache
                 self.cacheM[index] = 1
 
 
@@ -229,10 +126,6 @@ class Memory (object):
         u"""Procura endereço na memória."""
         stats.stats['memhits'] += 1
         stats.stats['memtime'] += 60
-        if address in self.memory:
-            return
-        else:
-            self.memory.append(address)
 
     def read(self, address):
         u"""Operação de leitura na memória."""
@@ -241,7 +134,8 @@ class Memory (object):
 
     def write(self, address):
         u"""Operação de escrita na memória."""
-        return
+        # Busca endereço na memória
+        self.search(address)
 
 
 class Statistics (object):
@@ -264,22 +158,15 @@ class Statistics (object):
         print "L1  hit rate: " + str(l1_hit_rate)
         print "L2  hit rate: " + str(l2_hit_rate)
         print "Mem hit rate: " + str(mem_hit_rate)
+        print "Mem Total Time: " + str(self.stats['memtime'])
 
 
 def parse_line(line):
     u"""Decompõe linha em endereço e operação."""
-    address = line[:line.find(' ')]
-    operation = line[(line.find(' ') + 1):]
-    stats.stats['total'] += 1
+    index = line.find(' ')
+    address = line[:index]
+    operation = line[index + 1]
     return [address, operation]
-
-
-def perform_operation(address, operation):
-    u"""Executa a tarefa solicitada."""
-    if operation == 'R':
-        l1.read(address)
-    elif operation == 'W':
-        l1.write(address)
 
 
 def main():
@@ -290,34 +177,50 @@ def main():
     print "*                                   *"
     print "*************************************"
 
-    # Opening the input file
-    file = open('gcc.txt', 'r')
-
+    total = 0
     # For each line on input file:
-    for line in file.readlines():
+    with open('gcc.txt') as infile:
+        for line in infile:
+            print total
+            total += 1
 
-        # Avoiding empty lines on file
-        line = line.strip('\n')
-        if not line:
-            continue
+            # Parsing read line into Address and Operation
+            [address, operation] = parse_line(line)
 
-        # Parsing read line into Address and Operation
-        [address, operation] = parse_line(line)
-
-        # Performing selected operation
-        perform_operation(address, operation)
-
-    # Closing the input files
-    file.close()
+            # Performing selected operation
+            if operation == 'R':
+                l1.read(address)
+            elif operation == 'W':
+                l1.write(address)
 
     # Printing Statistics
+    stats.stats['total'] = total
     stats.print_stats()
 
 u"""Escopo global para chamada da main."""
-fila = Queue()
+
+# Creating Statistics
 stats = Statistics()
-l1 = L1cache()
-l2 = L2cache()
+
+# Creating Memory
 mem = Memory()
+
+# Creating Cache L2
+l2 = Cache(64)
+l2.write_policy = 'WB'
+l2.write_fail_policy = 'WNA'
+l2.stathits = 'l2hits'
+l2.access_time = 4
+l2.tag_time = 2
+l2.lower_level = mem
+
+# Creating Cache L1
+l1 = Cache(10)
+l1.write_policy = 'WT'
+l1.write_fail_policy = 'WA'
+l1.stathits = 'l1hits'
+l1.access_time = 2
+l1.tag_time = 1
+l1.lower_level = l2
 
 main()
