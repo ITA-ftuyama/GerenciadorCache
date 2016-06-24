@@ -6,40 +6,15 @@ u"""Simulador de Sistema de Memória."""
 # Autor: Felipe Tuyama
 
 
-class Queue (object):
-    u"""Implementação simples de Fila para FIFO."""
-
-    def __init__(self):
-        u"""Inicialização da fila."""
-        self.dados = []
-
-    def insert(self, elemento):
-        u"""Inserção de elemento na fila."""
-        self.dados.append(elemento)
-
-    def remove(self):
-        u"""Remoção de elemento na fila."""
-        return self.dados.pop(0)
-
-
 class Cache (object):
     u"""Classe Cache."""
-
-    cache = []
-    cacheM = []
-    LRU = Queue()
-    write_policy = 'WT'
-    write_fail_policy = 'WA'
-    stathits = 'l1hits'
-    lower_level = None
-    access_time = 2
-    tag_time = 1
 
     def __init__(self, size):
         u"""Inicialização da Cache."""
         self.cache = [-1] * size
         self.cacheM = [0] * size
-        self.LRU.dados = range(size)
+        self.size = size
+        self.LRU = 0
 
     def search(self, address):
         u"""Procura endereço na cache."""
@@ -50,7 +25,7 @@ class Cache (object):
 
     def substitute(self, address):
         u"""Substituição de bloco na Cache."""
-        slot = self.LRU.remove()
+        slot = self.LRU
         # Verfica se o bloco está sujo
         if self.cacheM[slot] == 1 and self.write_policy == 'WB':
             # O Bloco deve ser gravado no nível inferior
@@ -60,7 +35,7 @@ class Cache (object):
         # Substituição sem traumas
         self.cache[slot] = address
         self.cacheM[slot] = 0
-        self.LRU.insert(slot)
+        self.LRU = (self.LRU + 1) % self.size
 
     def read(self, address):
         u"""Operação de leitura na Cache."""
@@ -124,13 +99,13 @@ class Memory (object):
 
     def search(self, address):
         u"""Procura endereço na memória."""
-        stats.stats['memhits'] += 1
         stats.stats['memtime'] += 60
 
     def read(self, address):
         u"""Operação de leitura na memória."""
         # Busca endereço na memória
         self.search(address)
+        stats.stats['memhits'] += 1
 
     def write(self, address):
         u"""Operação de escrita na memória."""
@@ -161,14 +136,6 @@ class Statistics (object):
         print "Mem Total Time: " + str(self.stats['memtime'])
 
 
-def parse_line(line):
-    u"""Decompõe linha em endereço e operação."""
-    index = line.find(' ')
-    address = line[:index]
-    operation = line[index + 1]
-    return [address, operation]
-
-
 def main():
     u"""Rotina main do Simulador de Memória."""
     print "*************************************"
@@ -179,13 +146,15 @@ def main():
 
     total = 0
     # For each line on input file:
-    with open('gcc.txt') as infile:
+    with open('gcc.trace') as infile:
         for line in infile:
-            print total
+            if total % 50000 == 0:
+                print "#",
             total += 1
-
             # Parsing read line into Address and Operation
-            [address, operation] = parse_line(line)
+            index = line.find(' ')
+            address = line[:index]
+            operation = line[index + 1]
 
             # Performing selected operation
             if operation == 'R':
