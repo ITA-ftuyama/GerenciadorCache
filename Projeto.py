@@ -70,24 +70,20 @@ class Cache (object):
                 stats.stats['memtime'] += self.access_time
                 self.cacheM[index] = 1
         else:
-            # Política de Gravação Write Through
-            if self.write_policy == 'WT':
-                # Faz a gravação no nível inferior
+            # Política de Gravação Write Allocate
+            if self.write_policy == 'WA':
+                # Traz o bloco do nível inferior
                 # (O tempo será dado pelo nível inferior)
                 self.lower_level.write(address)
                 # Traz o bloco para a Cache
                 self.substitute(address)
                 # Realização da escrita na Cache
                 self.cacheM[index] = 1
-            # Política de Gravação Write Back
-            elif self.write_policy == 'WB':
-                # Traz o bloco do nível inferior
+            # Política de Gravação Write Not Allocate
+            elif self.write_policy == 'WNA':
+                # Não traz o bloco do nível inferior
                 # (O tempo será dado pelo nível inferior)
-                self.lower_level.read(address)
-                # Traz o bloco para a Cache
-                self.substitute(address)
-                # Realização da escrita na Cache
-                self.cacheM[index] = 1
+                self.lower_level.write(address)
 
 
 class Memory (object):
@@ -129,11 +125,13 @@ class Statistics (object):
         l1_hit_rate = (100.0 * self.stats['l1hits'] / self.stats['total'])
         l2_hit_rate = (100.0 * self.stats['l2hits'] / self.stats['total'])
         mem_hit_rate = (100.0 * self.stats['memhits'] / self.stats['total'])
+        print ""
+        print "Estatísticas"
         print stats.stats
         print "L1  hit rate: " + str(l1_hit_rate)
         print "L2  hit rate: " + str(l2_hit_rate)
         print "Mem hit rate: " + str(mem_hit_rate)
-        print "Mem Total Time: " + str(self.stats['memtime'])
+        print "Mem Total Time: " + str(self.stats['memtime'] / 1000.0)
 
 
 def main():
@@ -145,24 +143,24 @@ def main():
     print "*************************************"
 
     total = 0
-    # For each line on input file:
+    # Para cada linha do arquivo de entrada:
     with open('gcc.trace') as infile:
         for line in infile:
             if total % 50000 == 0:
                 print "#",
             total += 1
-            # Parsing read line into Address and Operation
+            # Interpreta endereço e operação
             index = line.find(' ')
             address = line[:index]
             operation = line[index + 1]
 
-            # Performing selected operation
+            # Realiza operação selecionada
             if operation == 'R':
                 l1.read(address)
             elif operation == 'W':
                 l1.write(address)
 
-    # Printing Statistics
+    # Imprime estatísticas
     stats.stats['total'] = total
     stats.print_stats()
 
