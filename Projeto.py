@@ -29,7 +29,6 @@ class Cache (object):
         # Verfica se o bloco está sujo
         if self.cacheM[slot] == 1 and self.write_policy == 'WB':
             # O Bloco deve ser gravado no nível inferior
-            # (O tempo será dado pelo nível inferior)
             self.lower_level.write(address)
 
         # Substituição sem traumas
@@ -44,10 +43,10 @@ class Cache (object):
         if index != -1:
             # Realização da leitura na Cache
             stats.stats[self.stathits] += 1
-            stats.stats['memtime'] += self.tag_time + self.access_time
+            times.append(self.tag_time + self.access_time)
         else:
             # Continua a busca no nível inferior
-            # (O tempo será dado pelo nível inferior)
+            times.append(self.tag_time)
             self.lower_level.read(address)
             # Traz o bloco para a Cache
             self.substitute(address)
@@ -57,32 +56,33 @@ class Cache (object):
         # Busca endereço na Cache
         index = self.search(address)
         if index != -1:
+            stats.stats[self.stathits] += 1
             # Política de Gravação Write Through
             if self.write_policy == 'WT':
                 # Realização da escrita na Cache
-                # (O tempo será dado pelo nível inferior)
+                times.append(self.tag_time + self.access_time)
                 self.cacheM[index] = 1
                 # Realiza escrita no nível inferior também
                 self.lower_level.write(address)
             # Política de Gravação Write Back
             elif self.write_policy == 'WB':
                 # Realização da escrita na Cache
-                stats.stats['memtime'] += self.access_time
+                times.append(self.tag_time + self.access_time)
                 self.cacheM[index] = 1
         else:
             # Política de Gravação Write Allocate
-            if self.write_policy == 'WA':
+            if self.write_fail_policy == 'WA':
                 # Traz o bloco do nível inferior
-                # (O tempo será dado pelo nível inferior)
-                self.lower_level.write(address)
+                times.append(self.tag_time + self.access_time)
+                self.lower_level.read(address)
                 # Traz o bloco para a Cache
                 self.substitute(address)
                 # Realização da escrita na Cache
-                self.cacheM[index] = 1
+                self.write(address)
             # Política de Gravação Write Not Allocate
-            elif self.write_policy == 'WNA':
+            elif self.write_fail_policy == 'WNA':
                 # Não traz o bloco do nível inferior
-                # (O tempo será dado pelo nível inferior)
+                times.append(self.tag_time)
                 self.lower_level.write(address)
 
 
@@ -95,13 +95,13 @@ class Memory (object):
 
     def search(self, address):
         u"""Procura endereço na memória."""
-        stats.stats['memtime'] += 60
+        times.append(60)
+        stats.stats['memhits'] += 1
 
     def read(self, address):
         u"""Operação de leitura na memória."""
         # Busca endereço na memória
         self.search(address)
-        stats.stats['memhits'] += 1
 
     def write(self, address):
         u"""Operação de escrita na memória."""
@@ -126,8 +126,7 @@ class Statistics (object):
         l2_hit_rate = (100.0 * self.stats['l2hits'] / self.stats['total'])
         mem_hit_rate = (100.0 * self.stats['memhits'] / self.stats['total'])
         print ""
-        print "Estatísticas"
-        print stats.stats
+        print "Estatísticas: " + str(stats.stats)
         print "L1  hit rate: " + str(l1_hit_rate)
         print "L2  hit rate: " + str(l2_hit_rate)
         print "Mem hit rate: " + str(mem_hit_rate)
@@ -144,27 +143,35 @@ def main():
 
     total = 0
     # Para cada linha do arquivo de entrada:
-    with open('gcc.trace') as infile:
+    with open('gcc.txt') as infile:
         for line in infile:
             if total % 50000 == 0:
                 print "#",
             total += 1
+
             # Interpreta endereço e operação
             index = line.find(' ')
             address = line[:index]
             operation = line[index + 1]
 
             # Realiza operação selecionada
+            del times[:]
             if operation == 'R':
                 l1.read(address)
             elif operation == 'W':
                 l1.write(address)
+
+            # Operações realizads em paralelo
+            stats.stats['memtime'] += max(times)
 
     # Imprime estatísticas
     stats.stats['total'] = total
     stats.print_stats()
 
 u"""Escopo global para chamada da main."""
+
+# Auxiliar times vector
+times = []
 
 # Creating Statistics
 stats = Statistics()
