@@ -99,7 +99,7 @@ class Memory (object):
 
     def search(self, address):
         u"""Procura endereço na memória."""
-        times.append(60)
+        times.append(self.access_time)
         stats.stats['memhits'] += 1
 
     def read(self, address):
@@ -131,20 +131,28 @@ class Statistics (object):
         print ""
         print "Estatísticas: " + str(stats.stats)
 
-        l1_hit_rate = 100.0 * self.stats['l1hits'] / self.stats['total']
-        l2_hit_rate = 100.0 * self.stats['l2hits'] / self.stats['total']
-        mem_hit_rate = 100.0 * self.stats['memhits'] / self.stats['total']
+        l1_hit_rate = 1.0 * self.stats['l1hits'] / self.stats['total']
+        l2_hit_rate = 1.0 * self.stats['l2hits'] / self.stats['total']
+        mem_hit_rate = 1.0 * self.stats['memhits'] / self.stats['total']
         print "L1  hit rate: " + str(l1_hit_rate)
         print "L2  hit rate: " + str(l2_hit_rate)
         print "Mem hit rate: " + str(mem_hit_rate)
 
-        l1_success_rate = 100.0 * self.stats['l1hits'] / self.stats['l1tries']
-        l2_success_rate = 100.0 * self.stats['l2hits'] / self.stats['l2tries']
-        mem_success_rate = 100.0
+        l1_success_rate = 1.0 * self.stats['l1hits'] / self.stats['l1tries']
+        l2_success_rate = 1.0 * self.stats['l2hits'] / self.stats['l2tries']
+        mem_success_rate = 1.0
         print "L1  success rate: " + str(l1_success_rate)
         print "L2  success rate: " + str(l2_success_rate)
         print "Mem success rate: " + str(mem_success_rate)
 
+        l1time = (l1.tag_time + l1.access_time)
+        l2time = (l2.tag_time + l2.access_time)
+        effective_time = (
+            l1_success_rate * l1time + (1.0 - l1_success_rate) * (
+                l2_success_rate * l2time + (1.0 - l2_success_rate) * (
+                    mem.access_time
+                )))
+        print "Effective Time: " + str(effective_time)
         print "Mem Total Time: " + str(self.stats['memtime'] / 1000.0)
 
 
@@ -194,6 +202,7 @@ stats = Statistics()
 
 # Creating Memory
 mem = Memory()
+mem.access_time = 60
 
 # Creating Cache L2
 l2 = Cache(64)
