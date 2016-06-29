@@ -18,6 +18,7 @@ class Cache (object):
 
     def search(self, address):
         u"""Procura endereço na cache."""
+        stats.stats[self.stattries] += 1
         if address in self.cache:
             return self.cache.index(address)
         else:
@@ -28,6 +29,9 @@ class Cache (object):
         slot = self.LRU
         # Verfica se o bloco está sujo
         if self.cacheM[slot] == 1 and self.write_policy == 'WB':
+            # Penalidade: Tempo extra para gravação
+            stats.stats['memtime'] += max(times)
+            del times[:]
             # O Bloco deve ser gravado no nível inferior
             self.lower_level.write(address)
 
@@ -115,6 +119,8 @@ class Statistics (object):
     stats = {
         'l1hits': 0,
         'l2hits': 0,
+        'l1tries': 0,
+        'l2tries': 0,
         'memhits': 0,
         'memtime': 0,
         'total': 0
@@ -122,14 +128,23 @@ class Statistics (object):
 
     def print_stats(self):
         u"""Exibe as estatísticas da execução do benchmark."""
-        l1_hit_rate = (100.0 * self.stats['l1hits'] / self.stats['total'])
-        l2_hit_rate = (100.0 * self.stats['l2hits'] / self.stats['total'])
-        mem_hit_rate = (100.0 * self.stats['memhits'] / self.stats['total'])
         print ""
         print "Estatísticas: " + str(stats.stats)
+
+        l1_hit_rate = 100.0 * self.stats['l1hits'] / self.stats['total']
+        l2_hit_rate = 100.0 * self.stats['l2hits'] / self.stats['total']
+        mem_hit_rate = 100.0 * self.stats['memhits'] / self.stats['total']
         print "L1  hit rate: " + str(l1_hit_rate)
         print "L2  hit rate: " + str(l2_hit_rate)
         print "Mem hit rate: " + str(mem_hit_rate)
+
+        l1_success_rate = 100.0 * self.stats['l1hits'] / self.stats['l1tries']
+        l2_success_rate = 100.0 * self.stats['l2hits'] / self.stats['l2tries']
+        mem_success_rate = 100.0
+        print "L1  success rate: " + str(l1_success_rate)
+        print "L2  success rate: " + str(l2_success_rate)
+        print "Mem success rate: " + str(mem_success_rate)
+
         print "Mem Total Time: " + str(self.stats['memtime'] / 1000.0)
 
 
@@ -143,8 +158,9 @@ def main():
 
     total = 0
     # Para cada linha do arquivo de entrada:
-    with open('gcc.txt') as infile:
+    with open('../gcc.trace') as infile:
         for line in infile:
+            # Barra de progresso
             if total % 50000 == 0:
                 print "#",
             total += 1
@@ -184,6 +200,7 @@ l2 = Cache(64)
 l2.write_policy = 'WB'
 l2.write_fail_policy = 'WNA'
 l2.stathits = 'l2hits'
+l2.stattries = 'l2tries'
 l2.access_time = 4
 l2.tag_time = 2
 l2.lower_level = mem
@@ -193,6 +210,7 @@ l1 = Cache(10)
 l1.write_policy = 'WT'
 l1.write_fail_policy = 'WA'
 l1.stathits = 'l1hits'
+l1.stattries = 'l1tries'
 l1.access_time = 2
 l1.tag_time = 1
 l1.lower_level = l2
