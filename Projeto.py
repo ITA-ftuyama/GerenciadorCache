@@ -15,7 +15,7 @@ class Cache (object):
         self.associativity = associativity
         self.groups = size / associativity
         self.cache = [-1] * self.size
-        self.cacheM = [0] * self.size
+        self.cacheM = [False] * self.size
         self.FIFO = [0] * self.groups
         self.LRU = [0] * self.size
 
@@ -45,7 +45,7 @@ class Cache (object):
                 return i
         return -1
 
-    def substitute(self, address):
+    def substitute(self, address, write):
         u"""Substituição de conjunto de blocos na Cache."""
         group = self.hash(address)
         if self.substitution == 'FIFO':
@@ -62,7 +62,7 @@ class Cache (object):
             self.LRU[slot] = 0
 
         # Verfica se o bloco está sujo
-        if self.cacheM[slot] == 1 and self.write_policy == 'WB':
+        if self.cacheM[slot] and self.write_policy == 'WB':
             # Penalidade: Tempo extra para gravação
             stats.stats['memtime'] += max(times)
             del times[:]
@@ -71,7 +71,7 @@ class Cache (object):
 
         # Substituição do bloco sem traumas
         self.cache[slot] = address
-        self.cacheM[slot] = 0
+        self.cacheM[slot] = write
 
     def read(self, address):
         u"""Operação de leitura na Cache."""
@@ -86,7 +86,7 @@ class Cache (object):
             times.append(self.tag_time)
             self.lower_level.read(address)
             # Traz o bloco para a Cache
-            self.substitute(address)
+            self.substitute(address, False)
 
     def write(self, address):
         u"""Operação de escrita na Cache."""
@@ -98,24 +98,22 @@ class Cache (object):
             if self.write_policy == 'WT':
                 # Realização da escrita na Cache
                 times.append(self.tag_time + self.access_time)
-                self.cacheM[index] = 1
+                self.cacheM[index] = True
                 # Realiza escrita no nível inferior também
                 self.lower_level.write(address)
             # Política de Gravação Write Back
             elif self.write_policy == 'WB':
                 # Realização da escrita na Cache
                 times.append(self.tag_time + self.access_time)
-                self.cacheM[index] = 1
+                self.cacheM[index] = True
         else:
             # Política de Gravação Write Allocate
             if self.write_fail_policy == 'WA':
-                # Traz o bloco do nível inferior
-                times.append(self.tag_time + self.access_time)
-                self.lower_level.read(address)
+                # Grava bloco no nível inferior
+                times.append(self.tag_time)
+                self.lower_level.write(address)
                 # Traz o bloco para a Cache
-                self.substitute(address)
-                # Realização da escrita na Cache
-                self.write(address)
+                self.substitute(address, True)
             # Política de Gravação Write Not Allocate
             elif self.write_fail_policy == 'WNA':
                 # Não traz o bloco do nível inferior
