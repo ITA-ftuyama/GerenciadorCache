@@ -22,7 +22,7 @@ class Cache (object):
     def hash(self, address):
         u"""Cálculo do hash do conjunto do bloco de Cache."""
         hash = i = 1
-        while address > 10:
+        while address > 0:
             hash = hash + (address % 10) * i
             address = address / 10
             i = i + 1
