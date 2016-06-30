@@ -21,12 +21,15 @@ class Cache (object):
 
     def hash(self, address):
         u"""Cálculo do hash do conjunto do bloco de Cache."""
-        hash = i = 1
-        while address > 0:
-            hash = hash + (address % 10) * i
-            address = address / 10
-            i = i + 1
-        return hash % self.groups
+        if self.hash_type == 'simple':
+            return address % self.groups
+        elif self.hash_type == 'complex':
+            hash = i = 1
+            while address > 0:
+                hash = hash + (address % 10) * i
+                address = address / 10
+                i = i + 1
+            return hash % self.groups
 
     def search(self, address):
         u"""Procura endereço na cache."""
@@ -238,6 +241,7 @@ l2 = Cache(65536, 16)
 l2.write_policy = 'WB'
 l2.write_fail_policy = 'WNA'
 l2.substitution = 'FIFO'
+l2.hash_type = 'simple'
 l2.stathits = 'l2hits'
 l2.stattries = 'l2tries'
 l2.access_time = 4
@@ -248,7 +252,8 @@ l2.lower_level = mem
 l1 = Cache(1024, 8)
 l1.write_policy = 'WT'
 l1.write_fail_policy = 'WA'
-l1.substitution = 'LRU'
+l1.substitution = 'FIFO'
+l1.hash_type = 'simple'
 l1.stathits = 'l1hits'
 l1.stattries = 'l1tries'
 l1.access_time = 2
