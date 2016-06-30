@@ -9,24 +9,55 @@ u"""Simulador de Sistema de Memória."""
 class Cache (object):
     u"""Classe Cache."""
 
-    def __init__(self, size):
+    def __init__(self, size, associativity):
         u"""Inicialização da Cache."""
-        self.cache = [-1] * size
-        self.cacheM = [0] * size
         self.size = size
-        self.LRU = 0
+        self.associativity = associativity
+        self.groups = size / associativity
+        self.cache = [-1] * self.size
+        self.cacheM = [0] * self.size
+        self.FIFO = [0] * self.groups
+        self.LRU = [0] * self.size
+
+    def hash(self, address):
+        u"""Cálculo do hash do conjunto do bloco de Cache."""
+        hash = i = 1
+        while address > 10:
+            hash = hash + (address % 10) * i
+            address = address / 10
+            i = i + 1
+        return hash % self.groups
 
     def search(self, address):
         u"""Procura endereço na cache."""
         stats.stats[self.stattries] += 1
-        if address in self.cache:
-            return self.cache.index(address)
-        else:
-            return -1
+
+        # Setting the searching range
+        group = self.hash(address)
+        start = group * self.associativity
+        stop = (group + 1) * self.associativity
+
+        for i in range(start, stop):
+            if address == self.cache[i]:
+                return i
+        return -1
 
     def substitute(self, address):
-        u"""Substituição de bloco na Cache."""
-        slot = self.LRU
+        u"""Substituição de conjunto de blocos na Cache."""
+        group = self.hash(address)
+        if self.substitution == 'FIFO':
+            slot = group * self.associativity + self.FIFO[group]
+            self.FIFO[group] = (self.FIFO[group] + 1) % self.associativity
+        elif self.substitution == 'LRU':
+            start = group * self.associativity
+            stop = (group + 1) * self.associativity
+            slot = start
+            for i in range(start, stop):
+                if self.LRU[slot] < self.LRU[i]:
+                    slot = i
+                self.LRU[i] = self.LRU[i] + 1
+            self.LRU[slot] = 0
+
         # Verfica se o bloco está sujo
         if self.cacheM[slot] == 1 and self.write_policy == 'WB':
             # Penalidade: Tempo extra para gravação
@@ -35,10 +66,9 @@ class Cache (object):
             # O Bloco deve ser gravado no nível inferior
             self.lower_level.write(address)
 
-        # Substituição sem traumas
+        # Substituição do bloco sem traumas
         self.cache[slot] = address
         self.cacheM[slot] = 0
-        self.LRU = (self.LRU + 1) % self.size
 
     def read(self, address):
         u"""Operação de leitura na Cache."""
@@ -171,12 +201,11 @@ def main():
             # Barra de progresso
             if total % 50000 == 0:
                 print "#",
-            total += 1
 
+            total += 1
             # Interpreta endereço e operação
-            index = line.find(' ')
-            address = line[:index]
-            operation = line[index + 1]
+            address = int(line[:8], 16)
+            operation = line[9]
 
             # Realiza operação selecionada
             del times[:]
@@ -205,9 +234,10 @@ mem = Memory()
 mem.access_time = 60
 
 # Creating Cache L2
-l2 = Cache(64)
+l2 = Cache(65536, 16)
 l2.write_policy = 'WB'
 l2.write_fail_policy = 'WNA'
+l2.substitution = 'FIFO'
 l2.stathits = 'l2hits'
 l2.stattries = 'l2tries'
 l2.access_time = 4
@@ -215,9 +245,10 @@ l2.tag_time = 2
 l2.lower_level = mem
 
 # Creating Cache L1
-l1 = Cache(10)
+l1 = Cache(1024, 8)
 l1.write_policy = 'WT'
 l1.write_fail_policy = 'WA'
+l1.substitution = 'LRU'
 l1.stathits = 'l1hits'
 l1.stattries = 'l1tries'
 l1.access_time = 2
