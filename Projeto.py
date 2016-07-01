@@ -9,15 +9,16 @@ u"""Simulador de Sistema de Memória."""
 class Cache (object):
     u"""Classe Cache."""
 
-    def __init__(self, size, associativity):
+    def __init__(self, size, block_size, associativity):
         u"""Inicialização da Cache."""
         self.size = size
+        self.block_size = block_size
         self.associativity = associativity
         self.groups = size / associativity
-        self.cache = [-1] * self.size
-        self.cacheM = [False] * self.size
+        self.cache = [-1] * size
+        self.cacheM = [False] * size
         self.FIFO = [0] * self.groups
-        self.LRU = [0] * self.size
+        self.LRU = [0] * size
 
     def hash(self, address):
         u"""Cálculo do hash do conjunto do bloco de Cache."""
@@ -56,9 +57,9 @@ class Cache (object):
             stop = (group + 1) * self.associativity
             slot = start
             for i in range(start, stop):
+                self.LRU[i] = self.LRU[i] + 1
                 if self.LRU[slot] < self.LRU[i]:
                     slot = i
-                self.LRU[i] = self.LRU[i] + 1
             self.LRU[slot] = 0
 
         # Verfica se o bloco está sujo
@@ -77,7 +78,7 @@ class Cache (object):
         u"""Operação de leitura na Cache."""
         # Busca endereço na Cache
         index = self.search(address)
-        if index != -1:
+        if index > 0:
             # Realização da leitura na Cache
             stats.stats[self.stathits] += 1
             times.append(self.tag_time + self.access_time)
@@ -92,7 +93,7 @@ class Cache (object):
         u"""Operação de escrita na Cache."""
         # Busca endereço na Cache
         index = self.search(address)
-        if index != -1:
+        if index > 0:
             stats.stats[self.stathits] += 1
             # Política de Gravação Write Through
             if self.write_policy == 'WT':
@@ -126,7 +127,6 @@ class Memory (object):
 
     def __init__(self):
         u"""Inicialização da memória."""
-        self.memory = []
 
     def search(self, address):
         u"""Procura endereço na memória."""
@@ -235,7 +235,7 @@ mem = Memory()
 mem.access_time = 60
 
 # Creating Cache L2
-l2 = Cache(65536, 16)
+l2 = Cache(65536, 512, 16)
 l2.write_policy = 'WB'
 l2.write_fail_policy = 'WNA'
 l2.substitution = 'FIFO'
@@ -247,7 +247,7 @@ l2.tag_time = 2
 l2.lower_level = mem
 
 # Creating Cache L1
-l1 = Cache(1024, 8)
+l1 = Cache(1024, 512, 8)
 l1.write_policy = 'WT'
 l1.write_fail_policy = 'WA'
 l1.substitution = 'FIFO'
