@@ -24,6 +24,12 @@ class Cache (object):
         u"""Cálculo do hash do conjunto do bloco de Cache."""
         if self.hash_type == 'simple':
             return address % self.groups
+        elif self.hash_type == 'address':
+            hash = address % (self.block_size * self.size)
+            hash = hash / self.block_size
+            hash = hash / self.associativity
+            self.hashes[hash] = self.hashes[hash] + 1
+            return hash
         elif self.hash_type == 'complex':
             hash = i = 1
             while address > 0:
