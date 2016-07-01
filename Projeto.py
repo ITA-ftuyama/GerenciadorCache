@@ -28,7 +28,6 @@ class Cache (object):
             hash = address % (self.block_size * self.size)
             hash = hash / self.block_size
             hash = hash / self.associativity
-            self.hashes[hash] = self.hashes[hash] + 1
             return hash
         elif self.hash_type == 'complex':
             hash = i = 1
@@ -245,7 +244,7 @@ l2 = Cache(65536, 512, 16)
 l2.write_policy = 'WB'
 l2.write_fail_policy = 'WNA'
 l2.substitution = 'FIFO'
-l2.hash_type = 'simple'
+l2.hash_type = 'address'
 l2.stathits = 'l2hits'
 l2.stattries = 'l2tries'
 l2.access_time = 4
@@ -257,7 +256,7 @@ l1 = Cache(1024, 512, 8)
 l1.write_policy = 'WT'
 l1.write_fail_policy = 'WA'
 l1.substitution = 'FIFO'
-l1.hash_type = 'simple'
+l1.hash_type = 'address'
 l1.stathits = 'l1hits'
 l1.stattries = 'l1tries'
 l1.access_time = 2
