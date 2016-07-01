@@ -162,8 +162,10 @@ class Statistics (object):
     stats = {
         'l1hits': 0,
         'l2hits': 0,
+        'l3hits': 0,
         'l1tries': 0,
         'l2tries': 0,
+        'l3tries': 0,
         'memhits': 0,
         'memtime': 0,
         'total': 0
@@ -176,24 +178,30 @@ class Statistics (object):
 
         l1_hit_rate = 1.0 * self.stats['l1hits'] / self.stats['total']
         l2_hit_rate = 1.0 * self.stats['l2hits'] / self.stats['total']
+        l3_hit_rate = 1.0 * self.stats['l3hits'] / self.stats['total']
         mem_hit_rate = 1.0 * self.stats['memhits'] / self.stats['total']
         print "L1  hit rate: " + str(l1_hit_rate)
         print "L2  hit rate: " + str(l2_hit_rate)
+        print "L3  hit rate: " + str(l3_hit_rate)
         print "Mem hit rate: " + str(mem_hit_rate)
 
         l1_success_rate = 1.0 * self.stats['l1hits'] / self.stats['l1tries']
         l2_success_rate = 1.0 * self.stats['l2hits'] / self.stats['l2tries']
+        l3_success_rate = 1.0 * self.stats['l3hits'] / self.stats['l3tries']
         mem_success_rate = 1.0
         print "L1  success rate: " + str(l1_success_rate)
         print "L2  success rate: " + str(l2_success_rate)
+        print "L3  success rate: " + str(l3_success_rate)
         print "Mem success rate: " + str(mem_success_rate)
 
         l1time = (l1.tag_time + l1.access_time)
         l2time = (l2.tag_time + l2.access_time)
+        l3time = (l3.tag_time + l3.access_time)
         effective_time = (
             l1_success_rate * l1time + (1.0 - l1_success_rate) * (
                 l2_success_rate * l2time + (1.0 - l2_success_rate) * (
-                    mem.access_time)))
+                    l3_success_rate * l3time + (1.0 - l3_success_rate) * (
+                        mem.access_time))))
         print "Effective Time: " + str(effective_time)
         print "Mem Total Time: " + str(self.stats['memtime'] / 1000.0)
 
@@ -245,17 +253,29 @@ stats = Statistics()
 mem = Memory()
 mem.access_time = 60
 
+# Creating Cache L3
+l3 = Cache(98304, 512, 32)
+l3.write_policy = 'WB'
+l3.write_fail_policy = 'WNA'
+l3.substitution = 'FIFO'
+l3.hash_type = 'simple'
+l3.stathits = 'l3hits'
+l3.stattries = 'l3tries'
+l3.access_time = 10
+l3.tag_time = 5
+l3.lower_level = mem
+
 # Creating Cache L2
 l2 = Cache(65536, 512, 16)
 l2.write_policy = 'WB'
-l2.write_fail_policy = 'WNA'
+l2.write_fail_policy = 'WA'
 l2.substitution = 'FIFO'
 l2.hash_type = 'bigcomplex'
 l2.stathits = 'l2hits'
 l2.stattries = 'l2tries'
 l2.access_time = 4
 l2.tag_time = 2
-l2.lower_level = mem
+l2.lower_level = l3
 
 # Creating Cache L1
 l1 = Cache(1024, 512, 8)
